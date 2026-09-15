@@ -1,48 +1,49 @@
-# VMem
+# VMem - AI Context Bridge
 
 ### Persistent Client-Side Directory Indexer and Context Packaging for Large Language Models
 
-VMem is an ultra-lightweight, high-performance Google Chrome Extension engineered to optimize the Developer Experience (DX) and token efficiency when interacting with browser-based AI chats.
+VMem is an ultra-lightweight, high-performance Google Chrome Extension engineered to optimize the Developer Experience (DX) and token efficiency when interacting with browser-based AI chats (like Claude, Gemini, or ChatGPT).
 
-Instead of dealing with decaying chat histories, unstable browser automation, or messy multi-file copy-paste loops that bloat input tokens, VMem acts as a local repository compactor built right into the Chrome Side Panel. It flattens whole directory trees locally into structured, single-file context payloads ready for native AI file uploaders.
-
----
-
-## Architecture and Core Engineering
-
-VMem is built upon a zero-server, privacy-first infrastructure that shifts the computational load entirely onto the client-side browser engine:
-
-1. **Persistent Local Workspace Sandbox (chrome.storage.local):** Utilizing the unlimitedStorage permission layer, VMem operates an isolated browser-side database. It serializes and caches complete project directories permanently, keeping your workspaces organized across browser restarts and system reboots.
-2. **Zero-Input Automatic Naming:** VMem eliminates entry friction by scraping workspace identities dynamically. When dragging a folder or using the native directory explorer, the engine parses the root file system pathway metadata (file.webkitRelativePath or entry.name) to register the workspace name automatically under its physical directory label.
-3. **Asynchronous Recursive Directory Tree Parser (webkitGetAsEntry):** The ingestion pipeline walks your folder hierarchy recursively. It instantly streams text contents via asynchronous FileReader instances while automatically blacklisting heavy build artifacts (node_modules, .git, dist, build) and screening out binary blobs greater than 1MB to preserve storage stability.
-4. **Targeted Location Dialogue (chrome.downloads):** Moving away from standard headless file generation, VMem routes the finalized payload compilation through the background service worker using saveAs set to true. This hooks into the host operating system's native window frame, prompting users to selectively declare the output directory path before saving.
+Instead of dealing with decaying chat histories, unstable browser automation, or messy multi-file copy-paste loops that bloat input tokens, VMem acts as a local repository compactor built right into your Chrome Side Panel. It flattens whole directory trees locally into structured, single-file context payloads ready for native AI file uploaders.
 
 ---
 
-## UX Workflow
+## Key Features
 
-1. **Ingest:** Open your Chrome Side Panel, click the drop zone or drag an entire project folder directly into it. VMem automatically reads the root folder name and parses all contents.
-2. **Package:** Click "Scarica .txt" next to your archived workspace. A native OS window will pop up, allowing you to select the exact path to save your packed context file.
-3. **Feed:** Open a fresh, clean chat session with your AI. Click the Attach icon, upload the generated text file, and start prompting with the entire codebase already loaded in a single millisecond.
+- **100% Local and Privacy-First:** Zero server calls, zero external APIs. Your source code never leaves your machine during the compilation process.
+- **Native Drag and Drop / Directory Pick:** Drop an entire workspace directory directly into the Chrome Side Panel. VMem handles the rest.
+- **Persistent Local Sandbox:** Built on top of chrome.storage.local with an unlimitedStorage layer to persist your indexed workspaces across browser restarts.
+- **Smart Filtering:** Automatically bypasses heavy build artifacts (node_modules, .git, dist, build), binary blobs, and heavy media assets (>1MB) to maximize processing speed and memory efficiency.
+- **OS-Integrated Saving:** Routes the compiled payload via chrome.downloads with saveAs set to true, invoking your native OS dialog window to let you choose exactly where to save your context file.
+
+---
+
+## Architecture and Engineering
+
+VMem shifts the computational load entirely onto the client-side browser engine through a robust technical stack:
+
+1. **Asynchronous Recursive Directory Tree Parser (webkitGetAsEntry):** The ingestion pipeline walks your folder hierarchy recursively. It safely handles large directories by implementing continuous chunk-reading (readEntries) to bypass the native 100-entry batch limits imposed by Chromium.
+2. **Zero-Input Automatic Naming:** The engine parses the root file system pathway metadata (file.webkitRelativePath or entry.name) to register the workspace name automatically under its physical directory label, removing manual entry friction.
+3. **Optimized Token Layout:** The final compilation generates a highly parseable matrix. It wraps source files using strict markdown structural boundaries and mathematical separation rules, drastically reducing LLM hallucinations regarding file boundaries.
 
 ---
 
 ## Payload Layout Sample
 
-The compiled file generated by VMem feeds the LLM with a predictable, highly parseable matrix that isolates source files using strict markdown boundaries and system instructions, helping the AI understand file boundaries mathematically to reduce hallucinations:
+The text file generated by VMem feeds the LLM with a highly predictable structure:
 
 ```text
 [VMEM_WORKSPACE_CONTEXT]
-[PROJECT_NAME: plif_github]
-Istruzioni per l'AI: Analizza i file di codice allegati sottostanti...
+[PROJECT_NAME: my_awesome_app]
+Istruzioni per l'AI: Analizza i file di codice allegati sottostanti. Comprendi l'architettura complessiva prima di rispondere alle prossime domande.
 
 ========================================
-FILE PATH: PLIF_GITHUB/background.js
+👉 FILE PATH: MY_AWESOME_APP/background.js
 ========================================
 chrome.action.onClicked.addListener((tab) => { ... });
 
 ========================================
-FILE PATH: PLIF_GITHUB/popup.html
+👉 FILE PATH: MY_AWESOME_APP/popup.html
 ========================================
 <!DOCTYPE html><html>...</html>
 
@@ -51,10 +52,29 @@ FILE PATH: PLIF_GITHUB/popup.html
 
 ---
 
+## UX Workflow
+
+1. **Ingest:** Open your Chrome Side Panel, click the drop zone or drag an entire project folder directly into it. VMem reads the root folder name and parses all text files instantly.
+2. **Package:** Click "Scarica .txt" next to your archived workspace. A native OS window will prompt you to select the destination path.
+3. **Feed:** Open a fresh, clean chat session with your favorite AI. Attach the generated text file and start prompting with the entire codebase already loaded in a millisecond.
+
+---
+
 ## Developer Mode Installation
 
-1. Clone or download this directory as a local folder named VMem.
+Since VMem runs fully locally, you can load it as an unpacked extension:
+
+1. Clone or download this repository to your local machine.
 2. Open Google Chrome and navigate to chrome://extensions/.
-3. Toggle Developer Mode via the top-right switch.
-4. Click Load Unpacked (Carica estensione non pacchettizzata) in the top-left corner and select your VMem folder.
-5. Open your Chrome Side Panel, pin VMem, and start flattening your codebases.
+3. Enable Developer Mode using the toggle switch in the top-right corner.
+4. Click Load Unpacked (Carica estensione non pacchettizzata) in the top-left corner.
+5. Select the GMEM directory containing the manifest.json file.
+6. Open your Chrome Side Panel, select VMem, and start flattening your codebases.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+Copyright (c) 2026 Simone Taiola
