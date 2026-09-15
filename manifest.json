@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "VMem - AI Context Bridge",
+  "version": "2.6",
+  "description": "Compatta intere cartelle di codice in un unico file di contesto strutturato per l'AI.",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "unlimitedStorage",
+    "downloads"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

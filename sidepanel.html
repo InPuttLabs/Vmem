@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VMem Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>V<span>Mem</span></h1>
+      <p>Persistent Context Storage</p>
+    </header>
+
+    <!-- Quadrato Drag and Drop + Clic per Sfogliare -->
+    <div id="drop-zone" class="drop-zone">
+      <div class="drop-zone-content">
+        <span class="icon">📂</span>
+        <p>Trascina qui una cartella o <strong>clicca per sfogliare</strong></p>
+        <input type="file" id="folder-selector" webkitdirectory directory multiple style="display: none;">
+      </div>
+    </div>
+
+    <!-- Lista dei Progetti Salvati in Storage -->
+    <div class="context-section">
+      <h3>Workspace Archiviati</h3>
+      <div id="tree-container" class="tree-container">
+        <ul id="project-list" class="file-list">
+          <!-- Qui compariranno i progetti salvati in memoria permanente -->
+        </ul>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="clear-all-storage" class="btn btn-danger">Cancella Tutto il Database</button>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
