@@ -10,12 +10,43 @@ document.addEventListener("DOMContentLoaded", () => {
     folderSelector.click();
   });
 
+  // FUNZIONE DI SUPPORTO: Converte le regole di .gitignore in Espressioni Regolari (RegExp)
+  function compileGitignoreRules(gitignoreText) {
+    if (!gitignoreText) return [];
+
+    return (
+      gitignoreText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        // Salta righe vuote e commenti
+        .filter((line) => line && !line.startsWith("#"))
+        .map((pattern) => {
+          let p = pattern;
+          if (p.startsWith("/")) p = p.substring(1);
+
+          let regexString = p
+            .replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+            .replace(/\\\*/g, ".*");
+
+          if (p.endsWith("/") || !p.includes(".")) {
+            regexString += "($|\\/)";
+          }
+
+          return new RegExp(regexString);
+        })
+    );
+  }
+
+  // FUNZIONE DI SUPPORTO: Controlla se un percorso file corrisponde a una delle regole RegExp
+  function isIgnoredByRules(path, rules) {
+    return rules.some((rule) => rule.test(path));
+  }
+
   // GESTIONE INPUT TRAMITE CLIC / SFOGLIA CARTELLE
   folderSelector.addEventListener("change", async (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // RISOLTO BUG: Estrae correttamente la stringa della cartella radice dall'array generato dal path
     const firstFilePath = files[0].webkitRelativePath || "";
     const pathParts = firstFilePath.split("/");
     const rootFolderName =
@@ -24,12 +55,25 @@ document.addEventListener("DOMContentLoaded", () => {
         : "workspace_indefinito";
     const projName = rootFolderName.replace(/\s+/g, "_");
 
+    let gitignoreContent = "";
+    for (let file of files) {
+      const path = file.webkitRelativePath || file.name;
+      if (path.endsWith(".gitignore")) {
+        gitignoreContent = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onload = (event) => res(event.target.result);
+          reader.readAsText(file);
+        });
+        break;
+      }
+    }
+
+    const gitignoreRules = compileGitignoreRules(gitignoreContent);
     let extractedFiles = [];
 
     for (let file of files) {
       const path = file.webkitRelativePath || file.name;
 
-      // Filtro cartelle inutili
       if (
         path.includes("node_modules/") ||
         path.includes(".git/") ||
@@ -39,7 +83,10 @@ document.addEventListener("DOMContentLoaded", () => {
         continue;
       }
 
-      // OTTIMIZZAZIONE: Salta file binari/multimediali ed estensioni pesanti o sensibili
+      if (isIgnoredByRules(path, gitignoreRules)) {
+        continue;
+      }
+
       if (
         /\.(png|jpg|jpeg|gif|ico|webp|mp4|zip|tar|gz|pdf|exe|dll|env)$/i.test(
           path,
@@ -48,7 +95,6 @@ document.addEventListener("DOMContentLoaded", () => {
         continue;
       }
 
-      // Limite dimensione (1MB)
       if (file.size > 1024 * 1024) continue;
 
       const content = await new Promise((res) => {
@@ -77,19 +123,11 @@ document.addEventListener("DOMContentLoaded", () => {
     dropZone.classList.add("dragover");
   });
 
-  dropZone.addEventListener("dravelave", (e) => {
-    // Gestito anche fallback testuale per sicurezza
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.remove("dragover");
-  });
-
   dropZone.addEventListener("dragleave", (e) => {
     e.preventDefault();
     e.stopPropagation();
     dropZone.classList.remove("dragover");
   });
-
   dropZone.addEventListener("drop", async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -104,12 +142,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const projName = firstEntry.name.replace(/\s+/g, "_");
     let extractedFiles = [];
 
-    // RISOLTO BUG ASINCRONIA: Gestione sequenziale e robusta delle macro-voci nel drop
+    let gitignoreContent = "";
+    for (let item of items) {
+      if (item.kind === "file") {
+        const entry = item.webkitGetAsEntry();
+        if (entry && entry.isDirectory) {
+          gitignoreContent = await findGitignoreInDirectory(entry);
+          if (gitignoreContent) break;
+        }
+      }
+    }
+
+    const gitignoreRules = compileGitignoreRules(gitignoreContent);
+
     for (let item of items) {
       if (item.kind === "file") {
         const entry = item.webkitGetAsEntry();
         if (entry) {
-          await deepParseEntry(entry, "", extractedFiles);
+          await deepParseEntry(entry, "", extractedFiles, gitignoreRules);
         }
       }
     }
@@ -122,12 +172,32 @@ document.addEventListener("DOMContentLoaded", () => {
     await saveWorkspaceToStorage(projName, extractedFiles);
   });
 
-  // RISOLTO BUG ASINCRONIA RICORSIVA: Lettura sequenziale profonda garantita del FileSystem di Chrome
-  async function deepParseEntry(entry, currentPath, fileArray) {
+  async function findGitignoreInDirectory(dirEntry) {
+    const dirReader = dirEntry.createReader();
+    const entries = await new Promise((res) => dirReader.readEntries(res));
+    const gitignoreEntry = entries.find(
+      (e) => e.isFile && e.name === ".gitignore",
+    );
+
+    if (gitignoreEntry) {
+      const file = await new Promise((res) => gitignoreEntry.file(res));
+      return await new Promise((res) => {
+        const reader = new FileReader();
+        reader.onload = (e) => res(e.target.result);
+        reader.readAsText(file);
+      });
+    }
+    return "";
+  }
+
+  async function deepParseEntry(entry, currentPath, fileArray, gitignoreRules) {
     const path = currentPath ? `${currentPath}/${entry.name}` : entry.name;
 
+    if (isIgnoredByRules(path, gitignoreRules)) {
+      return;
+    }
+
     if (entry.isFile) {
-      // Esclude estensioni binarie o sensibili anche da Drag & Drop
       if (
         /\.(png|jpg|jpeg|gif|ico|webp|mp4|zip|tar|gz|pdf|exe|dll|env)$/i.test(
           entry.name,
@@ -158,7 +228,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const dirReader = entry.createReader();
 
-      // Legge tutte le entrate della cartella gestendo i limiti di readEntries di Chrome (max 100 alla volta)
       const readAllEntries = async () => {
         let allEntries = [];
         let results = await new Promise((res) => dirReader.readEntries(res));
@@ -171,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const entries = await readAllEntries();
       for (let childEntry of entries) {
-        await deepParseEntry(childEntry, path, fileArray);
+        await deepParseEntry(childEntry, path, fileArray, gitignoreRules);
       }
     }
   }
@@ -192,7 +261,9 @@ document.addEventListener("DOMContentLoaded", () => {
       chrome.storage.local.set({ [storageKey]: existingData }, () => {
         console.log(`VMem: Progetto [${projName}] archiviato.`);
         refreshSavedProjects();
-        alert(`Progetto "${projName}" salvato con successo!`);
+        alert(
+          `Progetto "${projName}" salvato con successo! (Filtri .gitignore applicati)`,
+        );
       });
     });
   }
